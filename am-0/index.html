@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AM-0</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    background: #ffffff;
+    font-family: 'Helvetica Neue', sans-serif;
+    height: 100%;
+  }
+  body {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    min-height: 100vh;
+  }
+
+  /* ===== sidebar ===== */
+  #sidebar {
+    width: 246px;
+    flex: 0 0 246px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    overflow-y: auto;
+    max-height: 100vh;
+    border-right: 1px solid #f2f2f2;
+  }
+
+  #modeTabs {
+    display: flex;
+    width: 100%;
+  }
+  .tab-btn {
+    flex: 1;
+    padding: 8px 10px;
+    background: #ffd5fe;
+    color: #000000;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .tab-btn:first-child { border-radius: 4px 0 0 4px; }
+  .tab-btn:last-child { border-radius: 0 4px 4px 0; }
+  .tab-btn.active { background: #aaa; }
+
+  .panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .row-btns {
+    display: flex;
+    gap: 8px;
+  }
+
+  label {
+    font-size: 12px;
+    color: #000000;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  label .label-line {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+  }
+  input[type=range] {
+    width: 100%;
+    accent-color: #ffd5fe;
+  }
+  button {
+    padding: 8px 14px;
+    background: #ffd5fe;
+    color: #000000;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    flex: 1;
+  }
+  button:hover { background: #e8b8e6; }
+  button:disabled { background: #bbb; cursor: default; }
+
+  #p-save-btn, #p-save-btn:hover { background: #ffd5fe; }
+  #p-save-btn:disabled { background: #aaa; cursor: default; }
+
+  .status {
+    font-size: 11px;
+    color: #aaa;
+    min-height: 14px;
+  }
+
+  /* ===== stage ===== */
+  #stage {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .stage-view {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+  canvas {
+    background: #fff;
+    border: 1px solid #eee;
+    max-width: 100%;
+    height: auto;
+  }
+  #v-video { display: none; }
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <div id="modeTabs">
+    <button class="tab-btn" id="tabVideoBtn">видео</button>
+    <button class="tab-btn active" id="tabPhotoBtn">фото</button>
+  </div>
+
+  <!-- ===================== PHOTO PANEL ===================== -->
+  <div class="panel" id="photoPanel">
+    <button onclick="document.getElementById('p-fi').click()">загрузить фото</button>
+    <input type="file" id="p-fi" accept="image/*" style="display:none">
+    <div class="row-btns">
+      <button id="p-regen">перегенерировать</button>
+    </div>
+    <button id="p-modeToggle">режим: fill</button>
+    <button id="p-save-btn" disabled>💾 сохранить SVG</button>
+
+    <label>
+      <div class="label-line"><span>кол-во точек контура</span><span id="p-edgeDotsV">8000</span></div>
+      <input type="range" id="p-edgeDots" min="100" max="10000" step="200" value="8000">
+    </label>
+
+    <label>
+      <div class="label-line"><span>кол-во точек заливки</span><span id="p-fillDotsV">100</span></div>
+      <input type="range" id="p-fillDots" min="0" max="10000" step="100" value="100">
+    </label>
+
+    <label>
+      <div class="label-line"><span>чёткость краёв</span><span id="p-edgeThreshV">20%</span></div>
+      <input type="range" id="p-edgeThresh" min="5" max="60" step="1" value="20">
+    </label>
+
+    <label>
+      <div class="label-line"><span>размытие контура</span><span id="p-blurRV">3px</span></div>
+      <input type="range" id="p-blurR" min="1" max="20" step="1" value="3">
+    </label>
+
+    <label>
+      <div class="label-line"><span>размер точки</span><span id="p-dotSizeV">2.5</span></div>
+      <input type="range" id="p-dotSize" min="1" max="8" step="0.5" value="2.5">
+    </label>
+
+    <label>
+      <div class="label-line"><span>толщина stroke</span><span id="p-strokeWV">1.2</span></div>
+      <input type="range" id="p-strokeW" min="0.3" max="4" step="0.1" value="1.2">
+    </label>
+
+    <div class="status" id="p-status">загрузите изображение</div>
+  </div>
+
+  <!-- ===================== VIDEO PANEL ===================== -->
+  <div class="panel" id="videoPanel" style="display:none">
+    <button onclick="document.getElementById('v-fi').click()">загрузить видео</button>
+    <input type="file" id="v-fi" accept="video/*" style="display:none">
+
+    <div class="row-btns">
+      <button id="v-playBtn" disabled>play</button>
+      <button id="v-pauseBtn" disabled>pause</button>
+    </div>
+
+    <button id="v-modeToggle">режим: fill</button>
+
+    <div class="row-btns">
+      <button id="v-recordStart" disabled>записать</button>
+      <button id="v-recordStop" disabled>остановить</button>
+    </div>
+
+    <label>
+      <div class="label-line"><span>кол-во точек контура</span><span id="v-edgeDotsV">4200</span></div>
+      <input type="range" id="v-edgeDots" min="200" max="12000" step="200" value="4200">
+    </label>
+
+    <label>
+      <div class="label-line"><span>кол-во точек заливки</span><span id="v-fillDotsV">1200</span></div>
+      <input type="range" id="v-fillDots" min="0" max="12000" step="100" value="1200">
+    </label>
+
+    <label>
+      <div class="label-line"><span>чёткость краёв</span><span id="v-edgeThreshV">22%</span></div>
+      <input type="range" id="v-edgeThresh" min="5" max="60" step="1" value="22">
+    </label>
+
+    <label>
+      <div class="label-line"><span>размытие контура</span><span id="v-blurRV">3px</span></div>
+      <input type="range" id="v-blurR" min="1" max="10" step="1" value="3">
+    </label>
+
+    <label>
+      <div class="label-line"><span>размер точки</span><span id="v-dotSizeV">2.2</span></div>
+      <input type="range" id="v-dotSize" min="0.8" max="8" step="0.2" value="2.2">
+    </label>
+
+    <label>
+      <div class="label-line"><span>толщина stroke</span><span id="v-strokeWV">1.0</span></div>
+      <input type="range" id="v-strokeW" min="0.2" max="4" step="0.1" value="1.0">
+    </label>
+
+    <label>
+      <div class="label-line"><span>fps preview</span><span id="v-targetFpsV">10</span></div>
+      <input type="range" id="v-targetFps" min="4" max="24" step="1" value="10">
+    </label>
+
+    <label>
+      <div class="label-line"><span>proc max</span><span id="v-procMaxV">520</span></div>
+      <input type="range" id="v-procMax" min="240" max="2000" step="40" value="520">
+    </label>
+
+    <div class="status" id="v-status">загрузи видео — обработка идёт в live preview, можно записать результат</div>
+  </div>
+</div>
+
+<div id="stage">
+  <div class="stage-view" id="photoStage"></div>
+  <div class="stage-view" id="videoStage" style="display:none">
+    <canvas id="v-view"></canvas>
+    <video id="v-video" playsinline muted crossorigin="anonymous"></video>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+<script>
+/* ============================================================
+   ОБЩИЕ ХЕЛПЕРЫ (идентичны по алгоритму в обоих исходниках)
+   ============================================================ */
+function gaussianBlur(gray, w, h, radius) {
+  if (radius <= 0) return gray;
+  const sigma = Math.max(0.1, radius / 2);
+  const size = radius * 2 + 1;
+  const kernel = new Float32Array(size);
+  let ksum = 0;
+  for (let i = 0; i < size; i++) {
+    const x = i - radius;
+    kernel[i] = Math.exp(-(x * x) / (2 * sigma * sigma));
+    ksum += kernel[i];
+  }
+  for (let i = 0; i < size; i++) kernel[i] /= ksum;
+
+  const tmp = new Float32Array(w * h);
+  for (let y = 0; y < h; y++) {
+    const row = y * w;
+    for (let x = 0; x < w; x++) {
+      let v = 0;
+      for (let k = 0; k < size; k++) {
+        const xi = Math.min(w - 1, Math.max(0, x + k - radius));
+        v += gray[row + xi] * kernel[k];
+      }
+      tmp[row + x] = v;
+    }
+  }
+
+  const out = new Float32Array(w * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let v = 0;
+      for (let k = 0; k < size; k++) {
+        const yi = Math.min(h - 1, Math.max(0, y + k - radius));
+        v += tmp[yi * w + x] * kernel[k];
+      }
+      out[y * w + x] = v;
+    }
+  }
+  return out;
+}
+
+function sobelMag(gray, w, h) {
+  const mag = new Float32Array(w * h);
+  let mx = 0;
+  for (let y = 1; y < h - 1; y++) {
+    const yw = y * w;
+    const ymw = (y - 1) * w;
+    const ypw = (y + 1) * w;
+    for (let x = 1; x < w - 1; x++) {
+      const tl = gray[ymw + x - 1], tc = gray[ymw + x], tr = gray[ymw + x + 1];
+      const ml = gray[yw + x - 1], mr = gray[yw + x + 1];
+      const bl = gray[ypw + x - 1], bc = gray[ypw + x], br = gray[ypw + x + 1];
+      const gx = -tl - 2 * ml - bl + tr + 2 * mr + br;
+      const gy = -tl - 2 * tc - tr + bl + 2 * bc + br;
+      const m = Math.sqrt(gx * gx + gy * gy);
+      mag[yw + x] = m;
+      if (m > mx) mx = m;
+    }
+  }
+  if (mx > 0) {
+    const inv = 1 / mx;
+    for (let i = 0; i < mag.length; i++) mag[i] *= inv;
+  }
+  return mag;
+}
+
+function buildCDF(map) {
+  let sum = 0;
+  for (let i = 0; i < map.length; i++) sum += map[i];
+  if (sum === 0) return null;
+  const cdf = new Float64Array(map.length);
+  let acc = 0;
+  for (let i = 0; i < map.length; i++) {
+    acc += map[i];
+    cdf[i] = acc / sum;
+  }
+  return cdf;
+}
+
+function sampleCDF(cdf) {
+  const r = Math.random();
+  let lo = 0, hi = cdf.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (cdf[mid] < r) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
+/* ============================================================
+   ПЕРЕКЛЮЧЕНИЕ РЕЖИМОВ ВИДЕО / ФОТО
+   ============================================================ */
+const tabVideoBtn = document.getElementById('tabVideoBtn');
+const tabPhotoBtn = document.getElementById('tabPhotoBtn');
+const photoPanel = document.getElementById('photoPanel');
+const videoPanel = document.getElementById('videoPanel');
+const photoStage = document.getElementById('photoStage');
+const videoStage = document.getElementById('videoStage');
+
+function setMode(mode) {
+  if (mode === 'photo') {
+    tabPhotoBtn.classList.add('active');
+    tabVideoBtn.classList.remove('active');
+    photoPanel.style.display = 'flex';
+    videoPanel.style.display = 'none';
+    photoStage.style.display = 'flex';
+    videoStage.style.display = 'none';
+    // остановим видео, если играло
+    if (typeof vPauseIfPlaying === 'function') vPauseIfPlaying();
+  } else {
+    tabVideoBtn.classList.add('active');
+    tabPhotoBtn.classList.remove('active');
+    videoPanel.style.display = 'flex';
+    photoPanel.style.display = 'none';
+    videoStage.style.display = 'flex';
+    photoStage.style.display = 'none';
+  }
+}
+tabPhotoBtn.addEventListener('click', () => setMode('photo'));
+tabVideoBtn.addEventListener('click', () => setMode('video'));
+
+/* ============================================================
+   ФОТО (p5.js) — логика без изменений
+   ============================================================ */
+const P_SVG_W = 298;
+const P_SVG_H = 420;
+const P_PREVIEW_SCALE = 1.8;
+const P_CANVAS_W = Math.round(P_SVG_W * P_PREVIEW_SCALE);
+const P_CANVAS_H = Math.round(P_SVG_H * P_PREVIEW_SCALE);
+
+let pImg = null, pEdgeCDF = null, pDarkCDF = null, pIW = 0, pIH = 0, pAllDots = [];
+let pParams = {
+  edgeDots: 8000,
+  fillDots: 100,
+  edgeThresh: 20,
+  blurR: 3,
+  dotSize: 2.5,
+  dotMode: 'fill',
+  strokeW: 1.2
+};
+let pNeedsRedraw = false;
+let pFit = { drawW: 0, drawH: 0, offsetX: 0, offsetY: 0 };
+
+const pStatusEl = document.getElementById('p-status');
+const pSaveBtn = document.getElementById('p-save-btn');
+const pModeToggleBtn = document.getElementById('p-modeToggle');
+
+function pUpdateModeButton() {
+  pModeToggleBtn.textContent = 'режим: ' + pParams.dotMode;
+}
+
+function pUpdateFit() {
+  const scale = Math.min(P_SVG_W / pIW, P_SVG_H / pIH);
+  pFit.drawW = pIW * scale;
+  pFit.drawH = pIH * scale;
+  pFit.offsetX = (P_SVG_W - pFit.drawW) / 2;
+  pFit.offsetY = (P_SVG_H - pFit.drawH) / 2;
+}
+
+function pBuildMasks() {
+  pStatusEl.textContent = 'строю карты...';
+  pIW = pImg.width;
+  pIH = pImg.height;
+
+  const gray = new Float32Array(pIW * pIH);
+  for (let i = 0; i < pIW * pIH; i++) {
+    gray[i] = (
+      0.299 * pImg.pixels[i * 4] +
+      0.587 * pImg.pixels[i * 4 + 1] +
+      0.114 * pImg.pixels[i * 4 + 2]
+    ) / 255;
+  }
+
+  const blurred = gaussianBlur(gray, pIW, pIH, pParams.blurR);
+  const mag = sobelMag(blurred, pIW, pIH);
+  const sorted = Array.from(mag).sort((a, b) => a - b);
+  const cutoff = sorted[Math.floor(sorted.length * (1 - pParams.edgeThresh / 100))];
+
+  const edgeW = new Float32Array(pIW * pIH);
+  const darkW = new Float32Array(pIW * pIH);
+
+  for (let i = 0; i < pIW * pIH; i++) {
+    if (mag[i] >= cutoff) {
+      edgeW[i] = Math.pow(mag[i], 0.7);
+    } else {
+      const dark = 1 - gray[i];
+      if (dark > 0.35) darkW[i] = Math.pow(dark - 0.35, 1.5);
+    }
+  }
+
+  pEdgeCDF = buildCDF(edgeW);
+  pDarkCDF = buildCDF(darkW);
+  pUpdateFit();
+  pStatusEl.textContent = 'готово, генерирую...';
+}
+
+function pRedrawDotsPreview(p) {
+  p.background(255);
+  for (const d of pAllDots) {
+    if (pParams.dotMode === 'stroke') {
+      p.noFill();
+      p.stroke(0, 0, 0, d.alpha);
+      p.strokeWeight(pParams.strokeW * P_PREVIEW_SCALE);
+    } else {
+      p.noStroke();
+      p.fill(0, 0, 0, d.alpha);
+    }
+    p.ellipse(
+      d.x * P_PREVIEW_SCALE,
+      d.y * P_PREVIEW_SCALE,
+      d.r * 2 * P_PREVIEW_SCALE,
+      d.r * 2 * P_PREVIEW_SCALE
+    );
+  }
+}
+
+function pSaveSVG(dots, w, h) {
+  let paths = '';
+  for (const d of dots) {
+    if (pParams.dotMode === 'stroke') {
+      paths += '<circle cx="' + d.x.toFixed(2) +
+               '" cy="' + d.y.toFixed(2) +
+               '" r="' + d.r.toFixed(2) +
+               '" fill="none" stroke="#000000" stroke-width="' +
+               pParams.strokeW.toFixed(2) + '"/>\n';
+    } else {
+      paths += '<circle cx="' + d.x.toFixed(2) +
+               '" cy="' + d.y.toFixed(2) +
+               '" r="' + d.r.toFixed(2) +
+               '" fill="#000000"/>\n';
+    }
+  }
+
+  const svg =
+    '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<svg xmlns="http://www.w3.org/2000/svg" width="' + w +
+    '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '">\n' +
+    '<rect width="100%" height="100%" fill="white"/>\n' +
+    paths + '</svg>';
+
+  const blob = new Blob([svg], { type: 'image/svg+xml' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'am-0.svg';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+new p5(function(p) {
+  p.setup = function() {
+    const cnv = p.createCanvas(P_CANVAS_W, P_CANVAS_H);
+    cnv.parent(photoStage);
+    p.background(255);
+    pUpdateModeButton();
+
+    document.getElementById('p-fi').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+
+      p.loadImage(url, function(loaded) {
+        pImg = loaded;
+        pImg.loadPixels();
+        pBuildMasks();
+        pNeedsRedraw = true;
+        URL.revokeObjectURL(url);
+      });
+    });
+
+    document.getElementById('p-regen').addEventListener('click', function() {
+      if (pImg) pNeedsRedraw = true;
+    });
+
+    pModeToggleBtn.addEventListener('click', function() {
+      pParams.dotMode = pParams.dotMode === 'fill' ? 'stroke' : 'fill';
+      pUpdateModeButton();
+      if (pAllDots.length > 0) pRedrawDotsPreview(p);
+    });
+
+    pSaveBtn.addEventListener('click', function() {
+      if (pAllDots.length > 0) pSaveSVG(pAllDots, P_SVG_W, P_SVG_H);
+    });
+
+    ['edgeDots', 'fillDots', 'edgeThresh', 'blurR', 'dotSize'].forEach(function(id) {
+      const el = document.getElementById('p-' + id), val = document.getElementById('p-' + id + 'V');
+      el.addEventListener('input', function() {
+        pParams[id] = parseFloat(el.value);
+        val.textContent = el.value + (id === 'edgeThresh' ? '%' : (id === 'blurR' ? 'px' : ''));
+        if ((id === 'edgeThresh' || id === 'blurR') && pImg) pBuildMasks();
+        if (pImg) pNeedsRedraw = true;
+      });
+    });
+
+    const strokeEl = document.getElementById('p-strokeW');
+    const strokeVal = document.getElementById('p-strokeWV');
+    strokeEl.addEventListener('input', function() {
+      pParams.strokeW = parseFloat(strokeEl.value);
+      strokeVal.textContent = strokeEl.value;
+      if (pAllDots.length > 0) pRedrawDotsPreview(p);
+    });
+  };
+
+  p.draw = function() {
+    if (!pNeedsRedraw || !pEdgeCDF) return;
+
+    pNeedsRedraw = false;
+    pSaveBtn.disabled = true;
+    pAllDots = [];
+
+    setTimeout(function() {
+      const edgeR = pParams.dotSize * 1.1 / 2;
+      const edgeAlpha = 255;
+
+      for (let k = 0; k < pParams.edgeDots; k++) {
+        const idx = sampleCDF(pEdgeCDF), ix = idx % pIW, iy = Math.floor(idx / pIW);
+        const xA5 = pFit.offsetX + ((ix + Math.random()) / pIW) * pFit.drawW;
+        const yA5 = pFit.offsetY + ((iy + Math.random()) / pIH) * pFit.drawH;
+        pAllDots.push({ x: xA5, y: yA5, r: edgeR, alpha: edgeAlpha });
+      }
+
+      if (pDarkCDF) {
+        const fillR = pParams.dotSize * 0.75 / 2;
+        const fillAlpha = 160;
+
+        for (let k = 0; k < pParams.fillDots; k++) {
+          const idx = sampleCDF(pDarkCDF), ix = idx % pIW, iy = Math.floor(idx / pIW);
+          const xA5 = pFit.offsetX + ((ix + Math.random()) / pIW) * pFit.drawW;
+          const yA5 = pFit.offsetY + ((iy + Math.random()) / pIH) * pFit.drawH;
+          pAllDots.push({ x: xA5, y: yA5, r: fillR, alpha: fillAlpha });
+        }
+      }
+
+      pRedrawDotsPreview(p);
+
+      pStatusEl.textContent =
+        'режим: ' + pParams.dotMode +
+        '  · контур: ' + pParams.edgeDots +
+        '  · заливка: ' + pParams.fillDots +
+        '  · A5: ' + P_SVG_W + '×' + P_SVG_H;
+
+      pSaveBtn.disabled = false;
+    }, 10);
+  };
+});
+
+/* ============================================================
+   ВИДЕО — логика без изменений
+   ============================================================ */
+const V_SVG_W = 900;
+const V_SVG_H = 900;
+const V_PREVIEW_SCALE = 1;
+const V_CANVAS_W = Math.round(V_SVG_W * V_PREVIEW_SCALE);
+const V_CANVAS_H = Math.round(V_SVG_H * V_PREVIEW_SCALE);
+
+const vCanvas = document.getElementById('v-view');
+const vCtx = vCanvas.getContext('2d');
+vCanvas.width = V_CANVAS_W;
+vCanvas.height = V_CANVAS_H;
+
+const vVideo = document.getElementById('v-video');
+const vStatusEl = document.getElementById('v-status');
+const vPlayBtn = document.getElementById('v-playBtn');
+const vPauseBtn = document.getElementById('v-pauseBtn');
+const vModeToggleBtn = document.getElementById('v-modeToggle');
+const vRecordStartBtn = document.getElementById('v-recordStart');
+const vRecordStopBtn = document.getElementById('v-recordStop');
+
+const vProcCanvas = document.createElement('canvas');
+const vProcCtx = vProcCanvas.getContext('2d', { willReadFrequently: true });
+
+let vParams = {
+  edgeDots: 4200,
+  fillDots: 1200,
+  edgeThresh: 22,
+  blurR: 3,
+  dotSize: 2.2,
+  strokeW: 1.0,
+  dotMode: 'fill',
+  targetFps: 10,
+  procMax: 520
+};
+
+let vFrameCallbackId = null;
+let vLastRenderTime = 0;
+let vFrameCount = 0;
+let vLastFpsStamp = performance.now();
+let vFpsDisplay = 0;
+let vFit = { drawW: 0, drawH: 0, offsetX: 0, offsetY: 0 };
+let vProcW = 0, vProcH = 0;
+
+let vRecorder = null;
+let vRecordChunks = [];
+let vIsRecording = false;
+
+function vUpdateModeButton() {
+  vModeToggleBtn.textContent = 'режим: ' + vParams.dotMode;
+}
+
+function vUpdateFit(srcW, srcH) {
+  const scale = Math.min(V_SVG_W / srcW, V_SVG_H / srcH);
+  vFit.drawW = srcW * scale;
+  vFit.drawH = srcH * scale;
+  vFit.offsetX = (V_SVG_W - vFit.drawW) / 2;
+  vFit.offsetY = (V_SVG_H - vFit.drawH) / 2;
+}
+
+function vConfigureProcessingSize() {
+  if (!vVideo.videoWidth || !vVideo.videoHeight) return;
+  const scale = Math.min(1, vParams.procMax / Math.max(vVideo.videoWidth, vVideo.videoHeight));
+  vProcW = Math.max(2, Math.round(vVideo.videoWidth * scale));
+  vProcH = Math.max(2, Math.round(vVideo.videoHeight * scale));
+  vProcCanvas.width = vProcW;
+  vProcCanvas.height = vProcH;
+  vUpdateFit(vProcW, vProcH);
+}
+
+function vBuildMapsFromFrame() {
+  vProcCtx.drawImage(vVideo, 0, 0, vProcW, vProcH);
+  const imgData = vProcCtx.getImageData(0, 0, vProcW, vProcH).data;
+  const total = vProcW * vProcH;
+  const gray = new Float32Array(total);
+
+  for (let i = 0, j = 0; i < total; i++, j += 4) {
+    gray[i] = (0.299 * imgData[j] + 0.587 * imgData[j + 1] + 0.114 * imgData[j + 2]) / 255;
+  }
+
+  const blurred = gaussianBlur(gray, vProcW, vProcH, vParams.blurR);
+  const mag = sobelMag(blurred, vProcW, vProcH);
+  const sorted = Array.from(mag).sort((a, b) => a - b);
+  const cutoff = sorted[Math.floor(sorted.length * (1 - vParams.edgeThresh / 100))] || 0;
+
+  const edgeW = new Float32Array(total);
+  const darkW = new Float32Array(total);
+
+  for (let i = 0; i < total; i++) {
+    if (mag[i] >= cutoff) {
+      edgeW[i] = Math.pow(mag[i], 0.7);
+    } else {
+      const dark = 1 - gray[i];
+      if (dark > 0.35) darkW[i] = Math.pow(dark - 0.35, 1.5);
+    }
+  }
+
+  return { edgeCDF: buildCDF(edgeW), darkCDF: buildCDF(darkW) };
+}
+
+function vDrawDot(xA5, yA5, r, alpha) {
+  if (vParams.dotMode === 'stroke') {
+    vCtx.beginPath();
+    vCtx.strokeStyle = `rgba(0,0,0,${alpha / 255})`;
+    vCtx.lineWidth = vParams.strokeW * V_PREVIEW_SCALE;
+    vCtx.arc(xA5 * V_PREVIEW_SCALE, yA5 * V_PREVIEW_SCALE, r * V_PREVIEW_SCALE, 0, Math.PI * 2);
+    vCtx.stroke();
+  } else {
+    vCtx.beginPath();
+    vCtx.fillStyle = `rgba(0,0,0,${alpha / 255})`;
+    vCtx.arc(xA5 * V_PREVIEW_SCALE, yA5 * V_PREVIEW_SCALE, r * V_PREVIEW_SCALE, 0, Math.PI * 2);
+    vCtx.fill();
+  }
+}
+
+function vRenderProcessedFrame() {
+  if (!vProcW || !vProcH) return;
+  vCtx.clearRect(0, 0, vCanvas.width, vCanvas.height);
+  vCtx.fillStyle = '#ffffff';
+  vCtx.fillRect(0, 0, vCanvas.width, vCanvas.height);
+
+  const maps = vBuildMapsFromFrame();
+  const edgeCDF = maps.edgeCDF;
+  const darkCDF = maps.darkCDF;
+
+  const edgeR = vParams.dotSize * 1.1 / 2;
+  for (let k = 0; k < vParams.edgeDots; k++) {
+    if (!edgeCDF) break;
+    const idx = sampleCDF(edgeCDF);
+    const ix = idx % vProcW;
+    const iy = Math.floor(idx / vProcW);
+    const xA5 = vFit.offsetX + ((ix + Math.random()) / vProcW) * vFit.drawW;
+    const yA5 = vFit.offsetY + ((iy + Math.random()) / vProcH) * vFit.drawH;
+    vDrawDot(xA5, yA5, edgeR, 255);
+  }
+
+  if (darkCDF) {
+    const fillR = vParams.dotSize * 0.75 / 2;
+    for (let k = 0; k < vParams.fillDots; k++) {
+      const idx = sampleCDF(darkCDF);
+      const ix = idx % vProcW;
+      const iy = Math.floor(idx / vProcW);
+      const xA5 = vFit.offsetX + ((ix + Math.random()) / vProcW) * vFit.drawW;
+      const yA5 = vFit.offsetY + ((iy + Math.random()) / vProcH) * vFit.drawH;
+      vDrawDot(xA5, yA5, fillR, 160);
+    }
+  }
+
+  vFrameCount++;
+  const now = performance.now();
+  if (now - vLastFpsStamp > 1000) {
+    vFpsDisplay = vFrameCount;
+    vFrameCount = 0;
+    vLastFpsStamp = now;
+  }
+
+  vStatusEl.textContent =
+    `video: ${vVideo.videoWidth}×${vVideo.videoHeight} · proc: ${vProcW}×${vProcH} · preview fps: ${vFpsDisplay} · режим: ${vParams.dotMode}${vIsRecording ? ' · запись' : ''}`;
+}
+
+function vOnVideoFrame(now) {
+  if (vVideo.paused || vVideo.ended) return;
+
+  const minDelta = 1000 / vParams.targetFps;
+  if (now - vLastRenderTime >= minDelta) {
+    vLastRenderTime = now;
+    vRenderProcessedFrame();
+  }
+
+  if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
+    vFrameCallbackId = vVideo.requestVideoFrameCallback(vOnVideoFrame);
+  } else {
+    vFrameCallbackId = requestAnimationFrame(vOnVideoFrame);
+  }
+}
+
+function vStartFrameLoop() {
+  vStopFrameLoop();
+  vLastRenderTime = 0;
+  vFrameCount = 0;
+  vLastFpsStamp = performance.now();
+  if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
+    vFrameCallbackId = vVideo.requestVideoFrameCallback(vOnVideoFrame);
+  } else {
+    vFrameCallbackId = requestAnimationFrame(vOnVideoFrame);
+  }
+}
+
+function vStopFrameLoop() {
+  if (vFrameCallbackId == null) return;
+  if ('cancelVideoFrameCallback' in HTMLVideoElement.prototype &&
+      'requestVideoFrameCallback' in HTMLVideoElement.prototype) {
+    try { vVideo.cancelVideoFrameCallback(vFrameCallbackId); } catch (e) {}
+  } else {
+    cancelAnimationFrame(vFrameCallbackId);
+  }
+  vFrameCallbackId = null;
+}
+
+function vRefreshIfPaused() {
+  if (vVideo.readyState >= 2 && vVideo.paused) {
+    vRenderProcessedFrame();
+  }
+}
+
+function vStopRecordingIfNeeded() {
+  if (vIsRecording && vRecorder) {
+    try { vRecorder.stop(); } catch (e) {}
+  }
+  vIsRecording = false;
+  vRecorder = null;
+  vRecordChunks = [];
+  vRecordStartBtn.disabled = true;
+  vRecordStopBtn.disabled = true;
+}
+
+// вызывается при переключении на вкладку "фото", чтобы не гнать видео в фоне
+function vPauseIfPlaying() {
+  if (!vVideo.paused) vVideo.pause();
+}
+
+vUpdateModeButton();
+vCtx.fillStyle = '#fff';
+vCtx.fillRect(0, 0, vCanvas.width, vCanvas.height);
+
+const vIds = ['edgeDots', 'fillDots', 'edgeThresh', 'blurR', 'dotSize', 'strokeW', 'targetFps', 'procMax'];
+for (const id of vIds) {
+  const el = document.getElementById('v-' + id);
+  const out = document.getElementById('v-' + id + 'V');
+  el.addEventListener('input', () => {
+    vParams[id] = parseFloat(el.value);
+    out.textContent = el.value + (id === 'edgeThresh' ? '%' : (id === 'blurR' ? 'px' : ''));
+    if (id === 'procMax' && vVideo.videoWidth) vConfigureProcessingSize();
+    vRefreshIfPaused();
+  });
+}
+
+document.getElementById('v-fi').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  vStopFrameLoop();
+  vStopRecordingIfNeeded();
+  vVideo.src = url;
+  vVideo.load();
+  vStatusEl.textContent = 'видео загружено, жду метаданные...';
+});
+
+vVideo.addEventListener('loadedmetadata', () => {
+  vConfigureProcessingSize();
+  vPlayBtn.disabled = false;
+  vPauseBtn.disabled = false;
+
+  vRecordStartBtn.disabled = false;
+  vRecordStopBtn.disabled = true;
+
+  vStatusEl.textContent = `готово: ${vVideo.videoWidth}×${vVideo.videoHeight} · нажми play`;
+  vRefreshIfPaused();
+});
+
+vVideo.addEventListener('play', () => {
+  vStatusEl.textContent = 'обрабатываю видео...';
+  vStartFrameLoop();
+});
+
+vVideo.addEventListener('pause', () => {
+  vStopFrameLoop();
+  vRefreshIfPaused();
+});
+
+vVideo.addEventListener('ended', () => {
+  vStopFrameLoop();
+  vRefreshIfPaused();
+});
+
+vPlayBtn.addEventListener('click', async () => {
+  try {
+    await vVideo.play();
+  } catch (err) {
+    vStatusEl.textContent = 'браузер не дал запустить видео автоматически';
+  }
+});
+
+vPauseBtn.addEventListener('click', () => {
+  vVideo.pause();
+});
+
+vModeToggleBtn.addEventListener('click', () => {
+  vParams.dotMode = vParams.dotMode === 'fill' ? 'stroke' : 'fill';
+  vUpdateModeButton();
+  vRefreshIfPaused();
+});
+
+vRecordStartBtn.addEventListener('click', () => {
+  if (vIsRecording) return;
+
+  if (typeof MediaRecorder === 'undefined') {
+    vStatusEl.textContent = 'MediaRecorder не поддерживается этим браузером';
+    return;
+  }
+
+  const stream = vCanvas.captureStream(vParams.targetFps);
+  vRecordChunks = [];
+
+  let options = {};
+  if (MediaRecorder.isTypeSupported('video/mp4')) {
+    options = { mimeType: 'video/mp4' };
+  } else if (MediaRecorder.isTypeSupported('video/webm; codecs=vp9')) {
+    options = { mimeType: 'video/webm; codecs=vp9' };
+  } else if (MediaRecorder.isTypeSupported('video/webm; codecs=vp8')) {
+    options = { mimeType: 'video/webm; codecs=vp8' };
+  } else if (MediaRecorder.isTypeSupported('video/webm')) {
+    options = { mimeType: 'video/webm' };
+  }
+
+  try {
+    vRecorder = new MediaRecorder(stream, options);
+  } catch (e) {
+    try {
+      vRecorder = new MediaRecorder(stream);
+    } catch (e2) {
+      vStatusEl.textContent = 'не удалось создать MediaRecorder';
+      return;
+    }
+  }
+
+  vRecorder.ondataavailable = (ev) => {
+    if (ev.data && ev.data.size > 0) vRecordChunks.push(ev.data);
+  };
+
+  vRecorder.onstop = () => {
+    if (!vRecordChunks.length) {
+      vStatusEl.textContent = 'запись остановлена, но данных нет';
+      vStopRecordingIfNeeded();
+      return;
+    }
+
+    const mime = vRecorder.mimeType || 'video/webm';
+    const blob = new Blob(vRecordChunks, { type: mime });
+
+    let ext = 'webm';
+    if (mime.startsWith('video/mp4')) ext = 'mp4';
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `am-video-dots-${Date.now()}.${ext}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+
+    vStatusEl.textContent = `запись завершена, видео (${ext}) скачано`;
+    vStopRecordingIfNeeded();
+  };
+
+  vRecorder.start();
+  vIsRecording = true;
+  vRecordStartBtn.disabled = true;
+  vRecordStopBtn.disabled = false;
+
+  vStatusEl.textContent = 'идёт запись canvas → видео';
+});
+
+vRecordStopBtn.addEventListener('click', () => {
+  if (!vIsRecording || !vRecorder) return;
+  try { vRecorder.stop(); } catch (e) {
+    vStopRecordingIfNeeded();
+  }
+});
+</script>
+
+</body>
+</html>
