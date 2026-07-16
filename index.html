@@ -1,4 +1,3 @@
-<update>
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -17,20 +16,19 @@
     flex-direction: row;
     align-items: stretch;
     min-height: 100vh;
-    overflow: hidden;
   }
 
   /* ===== sidebar ===== */
   #sidebar {
     width: 246px;
-    min-width: 246px;
-    max-width: 246px;
+    flex: 0 0 246px;
     padding: 20px;
     display: flex;
     flex-direction: column;
     gap: 14px;
     overflow-y: auto;
-    height: 100vh;
+    max-height: 100vh;
+    border-right: 1px solid #f2f2f2;
   }
 
   #modeTabs {
@@ -102,29 +100,21 @@
   /* ===== stage ===== */
   #stage {
     flex: 1;
-    min-width: 0;
-    height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 20px;
-    overflow: auto;
   }
   .stage-view {
-    width: 100%;
-    height: 100%;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
+    gap: 16px;
   }
   canvas {
-    display: block;
-    max-width: 100%;
-    max-height: calc(100vh - 40px);
-    width: auto;
-    height: auto;
     background: #fff;
-    border: none;
+    max-width: 100%;
+    height: auto;
   }
   #v-video { display: none; }
 </style>
