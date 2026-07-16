@@ -123,16 +123,16 @@
 
 <div id="sidebar">
   <div id="modeTabs">
-    <button class="tab-btn" id="tabVideoBtn">видео</button>
-    <button class="tab-btn active" id="tabPhotoBtn">фото</button>
+    <button class="tab-btn" id="tabVideoBtn">видеопоток</button>
+    <button class="tab-btn active" id="tabPhotoBtn">изображение</button>
   </div>
 
   <!-- ===================== PHOTO PANEL ===================== -->
   <div class="panel" id="photoPanel">
-    <button onclick="document.getElementById('p-fi').click()">загрузить фото</button>
+    <button onclick="document.getElementById('p-fi').click()">загрузить изображение</button>
     <input type="file" id="p-fi" accept="image/*" style="display:none">
     <div class="row-btns">
-      <button id="p-regen">перегенерировать</button>
+      <button id="p-regen">пересчитать структуру</button>
     </div>
     <button id="p-modeToggle">режим: fill</button>
     <button id="p-save-btn" disabled>💾 сохранить SVG</button>
@@ -172,12 +172,12 @@
 
   <!-- ===================== VIDEO PANEL ===================== -->
   <div class="panel" id="videoPanel" style="display:none">
-    <button onclick="document.getElementById('v-fi').click()">загрузить видео</button>
+    <button onclick="document.getElementById('v-fi').click()">загрузить видеопоток</button>
     <input type="file" id="v-fi" accept="video/*" style="display:none">
 
     <div class="row-btns">
-      <button id="v-playBtn" disabled>play</button>
-      <button id="v-pauseBtn" disabled>pause</button>
+      <button id="v-playBtn" disabled>пуск</button>
+      <button id="v-pauseBtn" disabled>пауза</button>
     </div>
 
     <button id="v-modeToggle">режим: fill</button>
@@ -227,7 +227,7 @@
       <input type="range" id="v-procMax" min="240" max="2000" step="40" value="520">
     </label>
 
-    <div class="status" id="v-status">загрузи видео — обработка идёт в live preview, можно записать результат</div>
+    <div class="status" id="v-status">загрузи видеопоток — обработка идёт в live preview, результат можно записать</div>
   </div>
 </div>
 
@@ -836,7 +836,7 @@ document.getElementById('v-fi').addEventListener('change', (e) => {
   vStopRecordingIfNeeded();
   vVideo.src = url;
   vVideo.load();
-  vStatusEl.textContent = 'видео загружено, жду метаданные...';
+  vStatusEl.textContent = 'видеопоток загружен, инициализация метаданных...';
 });
 
 vVideo.addEventListener('loadedmetadata', () => {
@@ -847,12 +847,12 @@ vVideo.addEventListener('loadedmetadata', () => {
   vRecordStartBtn.disabled = false;
   vRecordStopBtn.disabled = true;
 
-  vStatusEl.textContent = `готово: ${vVideo.videoWidth}×${vVideo.videoHeight} · нажми play`;
+  vStatusEl.textContent = `система готова: ${vVideo.videoWidth}×${vVideo.videoHeight} · нажми play`;
   vRefreshIfPaused();
 });
 
 vVideo.addEventListener('play', () => {
-  vStatusEl.textContent = 'обрабатываю видео...';
+  vStatusEl.textContent = 'выполняется обрабатка видеопотока...';
   vStartFrameLoop();
 });
 
@@ -870,7 +870,7 @@ vPlayBtn.addEventListener('click', async () => {
   try {
     await vVideo.play();
   } catch (err) {
-    vStatusEl.textContent = 'браузер не дал запустить видео автоматически';
+    vStatusEl.textContent = 'запуск заблокирован средой браузера';
   }
 });
 
@@ -888,7 +888,7 @@ vRecordStartBtn.addEventListener('click', () => {
   if (vIsRecording) return;
 
   if (typeof MediaRecorder === 'undefined') {
-    vStatusEl.textContent = 'MediaRecorder не поддерживается этим браузером';
+    vStatusEl.textContent = 'модуль MediaRecorder не поддерживается браузером';
     return;
   }
 
@@ -912,7 +912,7 @@ vRecordStartBtn.addEventListener('click', () => {
     try {
       vRecorder = new MediaRecorder(stream);
     } catch (e2) {
-      vStatusEl.textContent = 'не удалось создать MediaRecorder';
+      vStatusEl.textContent = 'модуль MediaRecorder недоступен';
       return;
     }
   }
@@ -923,7 +923,7 @@ vRecordStartBtn.addEventListener('click', () => {
 
   vRecorder.onstop = () => {
     if (!vRecordChunks.length) {
-      vStatusEl.textContent = 'запись остановлена, но данных нет';
+      vStatusEl.textContent = 'запись завершена, выходные данные отсутствуют';
       vStopRecordingIfNeeded();
       return;
     }
@@ -943,7 +943,7 @@ vRecordStartBtn.addEventListener('click', () => {
     a.remove();
     URL.revokeObjectURL(url);
 
-    vStatusEl.textContent = `запись завершена, видео (${ext}) скачано`;
+    vStatusEl.textContent = `запись завершена, файл (${ext}) сохранен`;
     vStopRecordingIfNeeded();
   };
 
@@ -952,7 +952,7 @@ vRecordStartBtn.addEventListener('click', () => {
   vRecordStartBtn.disabled = true;
   vRecordStopBtn.disabled = false;
 
-  vStatusEl.textContent = 'идёт запись canvas → видео';
+  vStatusEl.textContent = 'идёт захват выходного потока';
 });
 
 vRecordStopBtn.addEventListener('click', () => {
